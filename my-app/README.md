@@ -40,6 +40,14 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 The database is available on `127.0.0.1:3306` and its data persists in the `mysql_data` Docker volume. Use environment variables from `.env` when configuring another MySQL instance. The example passwords are for local development only; never use them in production.
 
+## Authentication
+
+Open the app and choose **Sign up** to create an account, then use the same email and password to log in. Passwords must be at least 8 characters and are stored as scrypt hashes. User and session tables are created automatically in MySQL when authentication is first used.
+
+## Vehicle records
+
+After signing in, add, view, edit, search, or delete vehicle records. Each record includes license plate letters, number and province, owner name and phone, vehicle brand, model and color, and an optional car photo (JPEG, PNG, or WebP up to 5 MB). Records and photos are limited to the signed-in account. Photos are stored locally under `data/uploads/cars` and are excluded from Git; include this folder in backups. For a multi-instance or hosted deployment, configure shared persistent file storage before using photo uploads.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
