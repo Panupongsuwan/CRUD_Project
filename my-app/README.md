@@ -20,6 +20,26 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## MySQL with Docker Desktop
+
+1. Make sure Docker Desktop is running.
+2. Copy `.env.example` to `.env` and change the local passwords if needed:
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+3. Start MySQL:
+
+   ```bash
+   docker compose up -d
+   ```
+
+4. Start the app with `npm run dev`.
+5. Check the connection at [http://localhost:3000/api/db/health](http://localhost:3000/api/db/health). A successful response is `{"status":"ok"}`.
+
+The database is available on `127.0.0.1:3306` and its data persists in the `mysql_data` Docker volume. Use environment variables from `.env` when configuring another MySQL instance. The example passwords are for local development only; never use them in production.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

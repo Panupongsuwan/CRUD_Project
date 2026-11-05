@@ -1,6 +1,5 @@
-export default function Index() {
-  return (
-    <div>
-    </div>
-  );
+import Login from "./login";
+
+export default function Page() {
+  return <Login />;
 }
