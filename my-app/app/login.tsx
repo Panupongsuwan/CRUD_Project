@@ -2,11 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import CarManager from "./car-manager";
+import { useLanguage } from "./i18n";
 
 type User = { email: string };
 type AuthResponse = { user?: User; error?: string };
 
 export default function Login() {
+  const { t, localizeError } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -25,11 +27,11 @@ export default function Login() {
           const data = (await response.json()) as AuthResponse;
           setUser(data.user ?? null);
         } else if (response.status !== 401) {
-          setErrorMessage("Could not check your login. Please try again.");
+          setErrorMessage(t("checkLoginError"));
         }
       } catch {
         if (active) {
-          setErrorMessage("Could not connect to the server. Please try again.");
+          setErrorMessage(t("connectionError"));
         }
       } finally {
         if (active) setIsCheckingSession(false);
@@ -40,7 +42,7 @@ export default function Login() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,13 +64,17 @@ export default function Login() {
       const data = (await response.json()) as AuthResponse;
 
       if (!response.ok) {
-        setErrorMessage(data.error ?? "Could not sign in. Please try again.");
+        setErrorMessage(
+          data.error
+            ? localizeError(data.error)
+            : t("signInError"),
+        );
         return;
       }
 
       setUser(data.user ?? null);
     } catch {
-      setErrorMessage("Could not connect to the server. Please try again.");
+      setErrorMessage(t("connectionError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -78,7 +84,9 @@ export default function Login() {
     const response = await fetch("/api/auth/logout", { method: "POST" });
     const data = (await response.json()) as AuthResponse;
     if (!response.ok) {
-      throw new Error(data.error ?? "Could not log out. Please try again.");
+      throw new Error(
+        data.error ? localizeError(data.error) : t("logoutError"),
+      );
     }
     setUser(null);
   }
@@ -91,15 +99,17 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
       <section className="w-full max-w-sm rounded-xl bg-white p-8 shadow">
         {isCheckingSession ? (
-          <p role="status">Checking your session...</p>
+          <p role="status">{t("loadingSession")}</p>
         ) : (
           <>
             <h1 className="mb-6 text-2xl font-semibold">
-              {isRegistering ? "Create account" : "Login"}
+              {isRegistering ? t("createAccount") : t("login")}
             </h1>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">Email</span>
+                <span className="mb-1 block text-sm font-medium">
+                  {t("email")}
+                </span>
                 <input
                   className="w-full rounded-md border border-slate-300 px-3 py-2"
                   type="email"
@@ -110,7 +120,9 @@ export default function Login() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">Password</span>
+                <span className="mb-1 block text-sm font-medium">
+                  {t("password")}
+                </span>
                 <input
                   className="w-full rounded-md border border-slate-300 px-3 py-2"
                   type="password"
@@ -124,7 +136,7 @@ export default function Login() {
                 />
                 {isRegistering && (
                   <span className="mt-1 block text-xs text-slate-500">
-                    Use at least 8 characters.
+                    {t("minPassword")}
                   </span>
                 )}
               </label>
@@ -139,10 +151,10 @@ export default function Login() {
                 disabled={isSubmitting}
               >
                 {isSubmitting
-                  ? "Please wait..."
+                  ? t("pleaseWait")
                   : isRegistering
-                    ? "Create account"
-                    : "Login"}
+                    ? t("createAccount")
+                    : t("login")}
               </button>
             </form>
             <button
@@ -154,8 +166,8 @@ export default function Login() {
               }}
             >
               {isRegistering
-                ? "Already have an account? Login"
-                : "Need an account? Sign up"}
+                ? t("haveAccount")
+                : t("needAccount")}
             </button>
           </>
         )}

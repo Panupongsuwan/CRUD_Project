@@ -46,7 +46,7 @@ Open the app and choose **Sign up** to create an account, then use the same emai
 
 ## Vehicle records
 
-After signing in, add, view, edit, search, or delete vehicle records. Each record includes license plate letters, number and province, owner name and phone, vehicle brand, model and color, and an optional car photo (JPEG, PNG, or WebP up to 5 MB). Records and photos are limited to the signed-in account. Photos are stored locally under `data/uploads/cars` and are excluded from Git; include this folder in backups. For a multi-instance or hosted deployment, configure shared persistent file storage before using photo uploads.
+After signing in, add, view, edit, search, or delete vehicle records. Each record includes license plate category, number and province, owner name and phone, vehicle brand, model and color, and an optional car photo (JPEG, PNG, or WebP up to 5 MB). The province selector groups all 77 provinces into Northern, Northeastern, Central (including Eastern and Western provinces), and Southern regions. Colors are grouped into neutral, vibrant, dark, earth-tone, pastel, and metallic categories. Brand and model fields provide searchable suggestions from the listed Japanese, Chinese, European, American, and Korean makes; both fields still accept custom text. Records and photos are limited to the signed-in account. Photos are stored locally under `data/uploads/cars` and are excluded from Git; include this folder in backups. For a multi-instance or hosted deployment, configure shared persistent file storage before using photo uploads.
 
 ## Learn More
 

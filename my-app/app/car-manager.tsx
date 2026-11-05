@@ -2,6 +2,10 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { carColors, colorGroups } from "./car-colors";
+import { carBrands, getModelsForBrand } from "./car-catalog";
+import { provinceGroups, thaiProvinces } from "./car-provinces";
+import { useLanguage } from "./i18n";
 
 type Car = {
   id: string;
@@ -39,11 +43,14 @@ export default function CarManager({
   email: string;
   onLogout: () => Promise<void>;
 }) {
+  const { t, localizeError } = useLanguage();
   const [cars, setCars] = useState<Car[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingCar, setEditingCar] = useState<Car | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
   const [search, setSearch] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -58,14 +65,18 @@ export default function CarManager({
       });
       const data = (await response.json()) as ApiResponse;
       if (!response.ok) {
-        throw new Error(data.error ?? "Could not load vehicle records.");
+        throw new Error(
+          data.error
+            ? localizeError(data.error)
+            : t("loadFailed"),
+        );
       }
       setCars(data.cars ?? []);
       setErrorMessage("");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setErrorMessage(
-        error instanceof Error ? error.message : "Could not load vehicle records.",
+        error instanceof Error ? error.message : t("loadFailed"),
       );
     } finally {
       if (!signal?.aborted) setIsLoading(false);
@@ -84,7 +95,9 @@ export default function CarManager({
       }))
       .then(({ response, data }) => {
         if (!response.ok) {
-          throw new Error(data.error ?? "Could not load vehicle records.");
+          throw new Error(
+            data.error ? localizeError(data.error) : t("loadFailed"),
+          );
         }
         setCars(data.cars ?? []);
         setErrorMessage("");
@@ -92,14 +105,14 @@ export default function CarManager({
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
         setErrorMessage(
-          error instanceof Error ? error.message : "Could not load vehicle records.",
+          error instanceof Error ? error.message : t("loadFailed"),
         );
       })
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [localizeError, t]);
 
   const visibleCars = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -113,6 +126,7 @@ export default function CarManager({
         car.ownerPhone,
         car.brand,
         car.model,
+        car.color,
       ]
         .join(" ")
         .toLocaleLowerCase()
@@ -132,6 +146,8 @@ export default function CarManager({
 
   function openCreateForm() {
     setEditingCar(null);
+    setSelectedBrand("");
+    setSelectedColor("");
     setPhotoFile(null);
     clearPhotoPreview();
     setRemovePhoto(false);
@@ -141,6 +157,12 @@ export default function CarManager({
 
   function openEditForm(car: Car) {
     setEditingCar(car);
+    setSelectedBrand(car.brand);
+    setSelectedColor(
+      carColors.some((color) => color === car.color)
+        ? car.color
+        : "__custom__",
+    );
     setPhotoFile(null);
     clearPhotoPreview();
     setRemovePhoto(false);
@@ -165,7 +187,9 @@ export default function CarManager({
       );
       const data = (await response.json()) as ApiResponse;
       if (!response.ok) {
-        setErrorMessage(data.error ?? "Could not save this vehicle.");
+        setErrorMessage(
+          data.error ? localizeError(data.error) : t("saveFailed"),
+        );
         return;
       }
 
@@ -175,7 +199,7 @@ export default function CarManager({
       clearPhotoPreview();
       await loadCars();
     } catch {
-      setErrorMessage("Could not connect to the server. Please try again.");
+      setErrorMessage(t("connectionError"));
     } finally {
       setIsSaving(false);
     }
@@ -184,7 +208,10 @@ export default function CarManager({
   async function handleDelete(car: Car) {
     if (
       !window.confirm(
-        `Delete ${car.plateLetters} ${car.plateNumber} (${car.province})?`,
+        t("confirmDelete", {
+          plate: `${car.plateLetters} ${car.plateNumber}`,
+          province: car.province,
+        }),
       )
     ) {
       return;
@@ -195,12 +222,14 @@ export default function CarManager({
       const response = await fetch(`/api/cars/${car.id}`, { method: "DELETE" });
       const data = (await response.json()) as ApiResponse;
       if (!response.ok) {
-        setErrorMessage(data.error ?? "Could not delete this vehicle.");
+        setErrorMessage(
+          data.error ? localizeError(data.error) : t("deleteFailed"),
+        );
         return;
       }
       setCars((current) => current.filter((item) => item.id !== car.id));
     } catch {
-      setErrorMessage("Could not connect to the server. Please try again.");
+      setErrorMessage(t("connectionError"));
     }
   }
 
@@ -210,7 +239,7 @@ export default function CarManager({
       await onLogout();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Could not log out.",
+        error instanceof Error ? error.message : t("logoutFailed"),
       );
     }
   }
@@ -226,7 +255,7 @@ export default function CarManager({
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <h1 className="text-xl font-bold text-slate-900">
-              Vehicle records
+              {t("vehicleRecords")}
             </h1>
             <p className="text-sm text-slate-500">{email}</p>
           </div>
@@ -235,7 +264,7 @@ export default function CarManager({
             type="button"
             onClick={() => void handleLogout()}
           >
-            Log out
+            {t("logout")}
           </button>
         </div>
       </header>
@@ -244,10 +273,10 @@ export default function CarManager({
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-slate-900">
-              Car and owner details
+              {t("carOwnerDetails")}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              {cars.length} {cars.length === 1 ? "record" : "records"}
+              {cars.length} {t("recordCount")}
             </p>
           </div>
           <button
@@ -255,19 +284,19 @@ export default function CarManager({
             type="button"
             onClick={openCreateForm}
           >
-            Add vehicle
+            {t("addVehicle")}
           </button>
         </div>
 
-        <label className="mb-5 block max-w-md">
+        <label className="mb-5 block max-w-xl">
           <span className="mb-1 block text-sm font-medium text-slate-700">
-            Search plate, owner, or vehicle
+            {t("searchLabel")}
           </span>
           <input
             className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Type to search"
+            placeholder={t("searchPlaceholder")}
           />
         </label>
 
@@ -279,78 +308,94 @@ export default function CarManager({
 
         {isLoading ? (
           <p className="py-12 text-center text-slate-600" role="status">
-            Loading vehicle records...
+            {t("loadingCars")}
           </p>
         ) : visibleCars.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
             <p className="font-medium text-slate-800">
-              {cars.length === 0 ? "No vehicles yet" : "No matching vehicles"}
+              {cars.length === 0 ? t("noVehicles") : t("noMatches")}
             </p>
             <p className="mt-1 text-sm text-slate-500">
               {cars.length === 0
-                ? "Add a vehicle to get started."
-                : "Try another search."}
+                ? t("addVehicleHint")
+                : t("searchHint")}
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-4">
             {visibleCars.map((car) => (
               <article
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.6fr)]"
                 key={car.id}
               >
-                {car.photoFilename ? (
-                  <Image
-                    className="h-48 w-full object-cover"
-                    src={`/api/cars/${car.id}/photo`}
-                    width={480}
-                    height={320}
-                    unoptimized
-                    alt={`Vehicle ${car.plateLetters} ${car.plateNumber}`}
-                  />
-                ) : (
-                  <div className="flex h-48 items-center justify-center bg-slate-200 text-sm text-slate-500">
-                    No car photo
-                  </div>
-                )}
-                <div className="space-y-3 p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-bold text-slate-900">
-                        {car.plateLetters} {car.plateNumber}
-                      </p>
-                      <p className="text-sm text-slate-500">{car.province}</p>
+                <div className="relative min-h-52 bg-slate-200 md:min-h-64">
+                  {car.photoFilename ? (
+                    <Image
+                      className="object-cover"
+                      src={`/api/cars/${car.id}/photo`}
+                      fill
+                      sizes="(min-width: 768px) 40vw, 100vw"
+                      unoptimized
+                      alt={t("platePhotoAlt", {
+                        plate: `${car.plateLetters} ${car.plateNumber}`,
+                      })}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                      {t("noPhoto")}
                     </div>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-                      {car.color}
-                    </span>
+                  )}
+                </div>
+                <div className="flex min-w-0 flex-col justify-between gap-5 p-5">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <div className="flex items-start justify-between gap-3 sm:col-span-2">
+                      <div>
+                        <p className="text-lg font-bold text-slate-900">
+                          {car.plateLetters} {car.plateNumber}
+                        </p>
+                        <p className="text-sm text-slate-500">{car.province}</p>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+                        {car.color}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">
+                        {t("vehicleDetails")}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-800">
+                        {car.brand} {car.model}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500">
+                        {t("ownerDetails")}
+                      </p>
+                      <p className="mt-1 font-medium text-slate-900">
+                        {car.ownerName}
+                      </p>
+                      <a
+                        className="text-sm text-blue-700 underline"
+                        href={`tel:${car.ownerPhone}`}
+                      >
+                        {car.ownerPhone}
+                      </a>
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-700">
-                    {car.brand} {car.model}
-                  </p>
-                  <div className="border-t border-slate-100 pt-3">
-                    <p className="font-medium text-slate-900">{car.ownerName}</p>
-                    <a
-                      className="text-sm text-blue-700 underline"
-                      href={`tel:${car.ownerPhone}`}
-                    >
-                      {car.ownerPhone}
-                    </a>
-                  </div>
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex gap-2 border-t border-slate-100 pt-4 md:justify-end">
                     <button
-                      className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50"
+                      className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 md:flex-none md:min-w-28"
                       type="button"
                       onClick={() => openEditForm(car)}
                     >
-                      Edit
+                      {t("edit")}
                     </button>
                     <button
-                      className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                      className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 md:flex-none md:min-w-28"
                       type="button"
                       onClick={() => void handleDelete(car)}
                     >
-                      Delete
+                      {t("delete")}
                     </button>
                   </div>
                 </div>
@@ -378,14 +423,14 @@ export default function CarManager({
           >
             <div className="mb-5 flex items-center justify-between gap-4">
               <h2 className="text-xl font-semibold" id="car-form-title">
-                {editingCar ? "Edit vehicle" : "Add vehicle"}
+                {editingCar ? t("editVehicle") : t("addVehicle")}
               </h2>
               <button
                 className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
                 type="button"
                 onClick={() => setIsFormOpen(false)}
                 disabled={isSaving}
-                aria-label="Close form"
+                aria-label={t("closeForm")}
               >
                 ✕
               </button>
@@ -402,60 +447,85 @@ export default function CarManager({
               className="space-y-5"
               onSubmit={handleSave}
             >
-              <fieldset>
-                <legend className="mb-3 font-medium text-slate-800">
-                  License plate
-                </legend>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label>
-                    <span className="mb-1 block text-sm text-slate-600">
-                      Letters
-                    </span>
-                    <input
-                      className="w-full rounded-md border border-slate-300 px-3 py-2"
-                      name="plateLetters"
-                      defaultValue={formCar.plateLetters}
-                      maxLength={20}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-sm text-slate-600">
-                      Numbers
-                    </span>
-                    <input
-                      className="w-full rounded-md border border-slate-300 px-3 py-2"
-                      name="plateNumber"
-                      defaultValue={formCar.plateNumber}
-                      inputMode="numeric"
-                      pattern="[0-9]{1,4}"
-                      maxLength={4}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span className="mb-1 block text-sm text-slate-600">
-                      Province
-                    </span>
-                    <input
-                      className="w-full rounded-md border border-slate-300 px-3 py-2"
-                      name="province"
-                      defaultValue={formCar.province}
-                      maxLength={100}
-                      required
-                    />
-                  </label>
-                </div>
-              </fieldset>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label>
+                  <span className="mb-1 block text-sm text-slate-600">
+                    {t("plateCategory")}
+                  </span>
+                  <input
+                    className="w-full rounded-md border border-slate-300 px-3 py-2"
+                    name="plateLetters"
+                    defaultValue={formCar.plateLetters}
+                    pattern="(?=.*[ก-ฮ])[ก-ฮ0-9]{2}"
+                    maxLength={2}
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-sm text-slate-600">
+                    {t("plateNumber")}
+                  </span>
+                  <input
+                    className="w-full rounded-md border border-slate-300 px-3 py-2"
+                    name="plateNumber"
+                    defaultValue={formCar.plateNumber}
+                    inputMode="numeric"
+                    pattern="[0-9]{1,4}"
+                    maxLength={4}
+                    required
+                  />
+                </label>
+                <label>
+                  <span className="mb-1 block text-sm text-slate-600">
+                    {t("province")}
+                  </span>
+                  <select
+                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
+                    name="province"
+                    defaultValue={formCar.province}
+                    required
+                  >
+                    <option value="">เลือกจังหวัด</option>
+                    {!thaiProvinces.includes(
+                      formCar.province as (typeof thaiProvinces)[number],
+                    ) &&
+                      formCar.province && (
+                        <option value={formCar.province}>
+                          {formCar.province} (ข้อมูลเดิม)
+                        </option>
+                      )}
+                    {provinceGroups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.provinces.map((province) => (
+                          <option key={province} value={province}>
+                            {province}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <datalist id="car-brand-options">
+                {carBrands.map((brand) => (
+                  <option key={brand} value={brand} />
+                ))}
+              </datalist>
+              <datalist id="car-model-options">
+                {getModelsForBrand(selectedBrand).map((model) => (
+                  <option key={model} value={model} />
+                ))}
+              </datalist>
 
               <fieldset>
                 <legend className="mb-3 font-medium text-slate-800">
-                  Owner details
+                  {t("ownerDetails")}
                 </legend>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label>
                     <span className="mb-1 block text-sm text-slate-600">
-                      Owner name
+                      {t("ownerName")}
                     </span>
                     <input
                       className="w-full rounded-md border border-slate-300 px-3 py-2"
@@ -467,7 +537,7 @@ export default function CarManager({
                   </label>
                   <label>
                     <span className="mb-1 block text-sm text-slate-600">
-                      Phone number
+                      {t("phoneNumber")}
                     </span>
                     <input
                       className="w-full rounded-md border border-slate-300 px-3 py-2"
@@ -484,66 +554,119 @@ export default function CarManager({
 
               <fieldset>
                 <legend className="mb-3 font-medium text-slate-800">
-                  Vehicle details
+                  {t("vehicleDetails")}
                 </legend>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <label>
                     <span className="mb-1 block text-sm text-slate-600">
-                      Brand
+                      {t("brand")}
                     </span>
                     <input
                       className="w-full rounded-md border border-slate-300 px-3 py-2"
                       name="brand"
                       defaultValue={formCar.brand}
+                      list="car-brand-options"
+                      onChange={(event) =>
+                        setSelectedBrand(event.currentTarget.value)
+                      }
                       maxLength={100}
                       required
                     />
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {t("typeToSearchOrEnter")}
+                    </span>
                   </label>
                   <label>
                     <span className="mb-1 block text-sm text-slate-600">
-                      Model
+                      {t("model")}
                     </span>
                     <input
                       className="w-full rounded-md border border-slate-300 px-3 py-2"
                       name="model"
                       defaultValue={formCar.model}
+                      list="car-model-options"
                       maxLength={100}
                       required
                     />
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {t("typeToSearchOrEnter")}
+                    </span>
                   </label>
                   <label>
                     <span className="mb-1 block text-sm text-slate-600">
-                      Color
+                      {t("color")}
                     </span>
-                    <input
-                      className="w-full rounded-md border border-slate-300 px-3 py-2"
+                    <select
+                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2"
                       name="color"
-                      defaultValue={formCar.color}
-                      maxLength={50}
+                      value={selectedColor}
+                      onChange={(event) =>
+                        setSelectedColor(event.currentTarget.value)
+                      }
                       required
-                    />
+                    >
+                      <option value="">เลือกกลุ่มสี</option>
+                      {colorGroups.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.colors.map((color) => (
+                            <option key={color} value={color}>
+                              {color}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                      <option value="__custom__">สีอื่น ๆ</option>
+                    </select>
+                    {selectedColor === "__custom__" && (
+                      <input
+                        className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2"
+                        name="customColor"
+                        defaultValue={
+                          carColors.some((color) => color === formCar.color)
+                            ? ""
+                            : formCar.color
+                        }
+                        maxLength={50}
+                        placeholder="ระบุสีรถ"
+                        aria-label="ระบุสีรถ"
+                        required
+                      />
+                    )}
                   </label>
                 </div>
               </fieldset>
 
               <fieldset>
                 <legend className="mb-2 font-medium text-slate-800">
-                  Car photo
+                  {t("carPhoto")}
                 </legend>
-                <input
-                  className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2"
-                  type="file"
-                  name="photo"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    setPhotoFile(file);
-                    setPhotoPreview(file ? URL.createObjectURL(file) : null);
-                    setRemovePhoto(false);
-                  }}
-                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    className="peer sr-only"
+                    id="car-photo-upload"
+                    type="file"
+                    name="photo"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label={t("selectPhoto")}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      setPhotoFile(file);
+                      setPhotoPreview(file ? URL.createObjectURL(file) : null);
+                      setRemovePhoto(false);
+                    }}
+                  />
+                  <label
+                    className="cursor-pointer rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-blue-700"
+                    htmlFor="car-photo-upload"
+                  >
+                    {t("selectPhoto")}
+                  </label>
+                  <span className="break-all text-sm text-slate-600">
+                    {photoFile?.name ?? t("noPhotoSelected")}
+                  </span>
+                </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  JPEG, PNG, or WebP; maximum 5 MB.
+                  {t("photoHelp")}
                 </p>
                 {(photoPreview || currentPhotoUrl) && (
                   <Image
@@ -552,7 +675,7 @@ export default function CarManager({
                     width={224}
                     height={144}
                     unoptimized
-                    alt="Car photo preview"
+                    alt={t("photoPreview")}
                   />
                 )}
                 {editingCar?.photoFilename && !photoFile && (
@@ -562,7 +685,7 @@ export default function CarManager({
                       checked={removePhoto}
                       onChange={(event) => setRemovePhoto(event.target.checked)}
                     />
-                    Remove current photo
+                    {t("removePhoto")}
                   </label>
                 )}
               </fieldset>
@@ -574,14 +697,14 @@ export default function CarManager({
                   onClick={() => setIsFormOpen(false)}
                   disabled={isSaving}
                 >
-                  Cancel
+                  {t("cancel")}
                 </button>
                 <button
                   className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                   type="submit"
                   disabled={isSaving}
                 >
-                  {isSaving ? "Saving..." : "Save vehicle"}
+                  {isSaving ? t("saving") : t("saveVehicle")}
                 </button>
               </div>
             </form>

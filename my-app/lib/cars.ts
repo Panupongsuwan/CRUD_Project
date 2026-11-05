@@ -99,34 +99,63 @@ export async function parseCarForm(request: Request): Promise<ParsedCarForm> {
     const value = form.get(key);
     return typeof value === "string" ? value.trim() : "";
   };
+  const submittedPlate = getText("plate");
+  let plateLetters = getText("plateLetters");
+  let plateNumber = getText("plateNumber");
+  if (submittedPlate) {
+    const plateMatch = submittedPlate.match(
+      /^(?:([ก-ฮ0-9]{2})\s*([0-9]{1,4})|([0-9]{1,4})\s*([ก-ฮ0-9]{2}))$/,
+    );
+    if (!plateMatch) {
+      return {
+        ok: false,
+        error:
+          "Invalid license plate format.",
+      };
+    }
+    plateLetters = plateMatch[1] ?? plateMatch[4];
+    plateNumber = plateMatch[2] ?? plateMatch[3];
+  }
+
   const car: CarInput = {
-    plateLetters: getText("plateLetters"),
-    plateNumber: getText("plateNumber"),
+    plateLetters,
+    plateNumber,
     province: getText("province"),
     ownerName: getText("ownerName"),
     ownerPhone: getText("ownerPhone"),
     brand: getText("brand"),
     model: getText("model"),
-    color: getText("color"),
+    color: getText("color") === "__custom__"
+      ? getText("customColor")
+      : getText("color"),
   };
 
   if (Object.values(car).some((value) => !value)) {
     return { ok: false, error: "Please fill in all vehicle and owner fields." };
   }
   if (
-    car.plateLetters.length > 20 ||
-    !/^[\p{L}\s.-]+$/u.test(car.plateLetters)
+    !/^(?=[ก-ฮ0-9]{2}$)(?=.*[ก-ฮ])[ก-ฮ0-9]{2}$/u.test(car.plateLetters)
   ) {
-    return { ok: false, error: "Enter valid license plate letters." };
+    return {
+      ok: false,
+      error: "Plate category must contain 2 characters including a Thai letter.",
+    };
   }
   if (!/^\d{1,4}$/.test(car.plateNumber)) {
     return { ok: false, error: "Plate number must contain 1 to 4 digits." };
   }
   if (
+    car.ownerPhone.length > 30 ||
+    !/^[0-9+()\-\s]{8,30}$/.test(car.ownerPhone)
+  ) {
+    return {
+      ok: false,
+      error: "Enter a valid owner phone number (8 to 30 characters).",
+    };
+  }
+  if (
     car.province.length > 100 ||
     car.ownerName.length > 150 ||
-    car.ownerPhone.length > 30 ||
-    !/^[0-9+()\-\s]{8,30}$/.test(car.ownerPhone) ||
     car.brand.length > 100 ||
     car.model.length > 100 ||
     car.color.length > 50
@@ -204,7 +233,8 @@ export async function removeCarPhoto(filename: string): Promise<void> {
 export async function listCarsForUser(userId: string): Promise<CarRecord[]> {
   const [rows] = await getDb().execute<CarRow[]>(
     `SELECT CAST(id AS CHAR) AS id, plate_letters, plate_number, province,
-            owner_name, owner_phone, brand, model, color, photo_filename, created_at
+            owner_name, owner_phone, brand, model, color, photo_filename,
+            created_at
      FROM cars
      WHERE user_id = ?
      ORDER BY created_at DESC, id DESC`,
