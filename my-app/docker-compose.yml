@@ -21,5 +21,16 @@ services:
       timeout: 5s
       retries: 20
 
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - "127.0.0.1:8080:8080"
+
 volumes:
   mysql_data:
