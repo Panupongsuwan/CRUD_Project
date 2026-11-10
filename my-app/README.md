@@ -40,6 +40,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 The database is available on `127.0.0.1:3306` and its data persists in the `mysql_data` Docker volume. Use environment variables from `.env` when configuring another MySQL instance. The example passwords are for local development only; never use them in production.
 
+The shareable table definitions are in [`database/schema.sql`](./database/schema.sql). Import this file into the selected MySQL database to create the tables without copying any user or vehicle records. Keep database exports containing real records and `.env` files out of GitHub.
+
 ## Authentication
 
 Open the app and choose **Sign up** to create an account, then use the same email and password to log in. Passwords must be at least 8 characters and are stored as scrypt hashes. User and session tables are created automatically in MySQL when authentication is first used.
