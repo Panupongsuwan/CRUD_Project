@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { carColors, colorGroups } from "./car-colors";
 import { carBrands, getModelsForBrand } from "./car-catalog";
@@ -259,13 +260,21 @@ export default function CarManager({
             </h1>
             <p className="text-sm text-slate-500">{email}</p>
           </div>
-          <button
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-            type="button"
-            onClick={() => void handleLogout()}
-          >
-            {t("logout")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              href="/dashboard"
+            >
+              {t("dashboard")}
+            </Link>
+            <button
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
+              type="button"
+              onClick={() => void handleLogout()}
+            >
+              {t("logout")}
+            </button>
+          </div>
         </div>
       </header>
 
