@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import CollegeBrand from "../college-brand";
+import DetectionsPanel from "../detections-panel";
 import { useLanguage } from "../i18n";
 
 type User = { email: string };
@@ -116,18 +118,20 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4">
-          <div>
-            <p className="text-sm font-semibold text-blue-700">
-              {t("dashboard")}
-            </p>
-            <p className="text-sm text-slate-500">{email}</p>
-          </div>
+          <CollegeBrand subtitle={`${t("dashboard")} · ${email}`} />
           <nav className="flex flex-wrap items-center gap-2" aria-label="เมนูหลัก">
             <Link
-              className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
               href="/"
             >
               {t("vehicleRecords")}
+            </Link>
+            <Link
+              className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+              href="/dashboard"
+              aria-current="page"
+            >
+              {t("dashboard")}
             </Link>
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
@@ -208,7 +212,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <section className="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                 <h2 className="text-lg font-semibold text-slate-900">
                   {t("recentVehicles")}
@@ -285,6 +289,7 @@ export default function DashboardPage() {
             </section>
           </>
         )}
+        {!isLoading && <DetectionsPanel />}
       </section>
     </main>
   );

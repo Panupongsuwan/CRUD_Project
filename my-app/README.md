@@ -50,6 +50,12 @@ Open the app and choose **Sign up** to create an account, then use the same emai
 
 After signing in, add, view, edit, search, or delete vehicle records. Each record includes license plate category, number and province, owner name and phone, vehicle brand, model and color, and an optional car photo (JPEG, PNG, or WebP up to 5 MB). The province selector groups all 77 provinces into Northern, Northeastern, Central (including Eastern and Western provinces), and Southern regions. Colors are grouped into neutral, vibrant, dark, earth-tone, pastel, and metallic categories. Brand and model fields provide searchable suggestions from the listed Japanese, Chinese, European, American, and Korean makes; both fields still accept custom text. Records and photos are limited to the signed-in account. Photos are stored locally under `data/uploads/cars` and are excluded from Git; include this folder in backups. For a multi-instance or hosted deployment, configure shared persistent file storage before using photo uploads.
 
+## License plate entry and exit detections
+
+The dashboard displays recent vehicle detections reported by a Raspberry Pi and refreshes the list every five seconds. To enable ingestion, set `PLATE_API_KEY` to a random secret of at least 32 characters and set `PLATE_OWNER_EMAIL` to an email registered in the app, then restart Next.js. The first request creates the detections table automatically.
+
+Send multipart form data to `POST /api/detections` with the `X-API-Key` header and `plate`, `direction` (`in`/`out` or `เข้า`/`ออก`), and `device` fields. The optional `time`, `province`, and `image` fields are also accepted; images must be JPEG or PNG and no larger than 5 MB. Detection records belong to the configured account and are matched only against that account's vehicle records. The signed-in dashboard reads the latest records from `GET /api/detections`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
