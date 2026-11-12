@@ -30,7 +30,7 @@ export type Detection = {
 interface DetectionRow extends RowDataPacket {
   id: string;
   plate_text: string;
-  direction: "in" | "out" | "unknown";
+  direction: string;
   device_id: string;
   detected_at: Date;
   photo_filename: string | null;
@@ -41,6 +41,10 @@ interface DetectionRow extends RowDataPacket {
   brand: string | null;
   model: string | null;
   color: string | null;
+}
+
+interface DetectionCountRow extends RowDataPacket {
+  total: number;
 }
 
 export type ParsedDetection = {
@@ -54,6 +58,13 @@ export type ParsedDetection = {
 export class DetectionPhotoValidationError extends Error {}
 
 let tablePromise: Promise<void> | undefined;
+
+function normalizeDirection(value: string): Detection["direction"] {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "in" || normalized === "เข้า") return "in";
+  if (normalized === "out" || normalized === "ออก") return "out";
+  return "unknown";
+}
 
 export async function ensureDetectionsTable(): Promise<void> {
   if (!tablePromise) {
@@ -119,7 +130,7 @@ export async function getIngestUserId(): Promise<string | null> {
 
   await ensureAuthTables();
   const [rows] = await getDb().execute<RowDataPacket[]>(
-    "SELECT CAST(id AS CHAR) AS id FROM auth_users WHERE email = ? LIMIT 1",
+    "SELECT CAST(id AS CHAR) AS id FROM auth_users WHERE email = ? AND role = 'office' LIMIT 1",
     [email],
   );
   return rows[0]?.id ?? null;
@@ -129,15 +140,7 @@ export function parseDetectionFields(form: FormData): ParsedDetection | string {
   const plate = String(form.get("plate") ?? "").replace(/\s+/g, "").trim();
   if (plate.length < 1 || plate.length > 40) return "Invalid plate text.";
 
-  const rawDirection = String(form.get("direction") ?? "")
-    .trim()
-    .toLowerCase();
-  const direction: ParsedDetection["direction"] =
-    rawDirection === "in" || rawDirection === "เข้า"
-      ? "in"
-      : rawDirection === "out" || rawDirection === "ออก"
-        ? "out"
-        : "unknown";
+  const direction = normalizeDirection(String(form.get("direction") ?? ""));
 
   const device = String(form.get("device") ?? "device").trim();
   if (!/^[\w.\- ]{1,60}$/.test(device)) return "Invalid device name.";
@@ -248,27 +251,27 @@ export async function insertDetection(
   return { id: String(result.insertId), matched: carId !== null };
 }
 
-export async function listDetections(
-  userId: string,
+export async function listSharedDetections(
   limit = 50,
+  offset = 0,
 ): Promise<Detection[]> {
   const safeLimit = Math.min(Math.max(Math.trunc(limit) || 50, 1), 200);
+  const safeOffset = Math.max(Math.trunc(offset) || 0, 0);
   const [rows] = await getDb().execute<DetectionRow[]>(
     `SELECT CAST(p.id AS CHAR) AS id, p.plate_text, p.direction, p.device_id,
             p.detected_at, p.photo_filename, p.province, CAST(p.car_id AS CHAR) AS car_id,
             c.owner_name, c.brand, c.model, c.color, c.province AS car_province
      FROM plate_detections p
      LEFT JOIN cars c ON c.id = p.car_id
-     WHERE p.user_id = ?
      ORDER BY p.detected_at DESC, p.id DESC
-     LIMIT ${safeLimit}`,
-    [userId],
+     LIMIT ? OFFSET ?`,
+    [safeLimit, safeOffset],
   );
 
   return rows.map((row) => ({
     id: row.id,
     plate: row.plate_text,
-    direction: row.direction,
+    direction: normalizeDirection(row.direction),
     device: row.device_id,
     detectedAt: row.detected_at.toISOString(),
     photoFilename: row.photo_filename,
@@ -282,13 +285,17 @@ export async function listDetections(
   }));
 }
 
-export async function getDetectionPhotoForUser(
-  userId: string,
-  id: string,
-): Promise<string | null> {
+export async function countSharedDetections(): Promise<number> {
+  const [rows] = await getDb().execute<DetectionCountRow[]>(
+    "SELECT COUNT(*) AS total FROM plate_detections",
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function getSharedDetectionPhoto(id: string): Promise<string | null> {
   const [rows] = await getDb().execute<RowDataPacket[]>(
-    "SELECT photo_filename FROM plate_detections WHERE id = ? AND user_id = ? LIMIT 1",
-    [id, userId],
+    "SELECT photo_filename FROM plate_detections WHERE id = ? LIMIT 1",
+    [id],
   );
   return rows[0]?.photo_filename ?? null;
 }
